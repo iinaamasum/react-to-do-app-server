@@ -20,6 +20,57 @@ async function run() {
   const taskCollection = client.db('todoData').collection('todoList');
 
   try {
+
+    /**
+     * JWT token post api
+     * link-local: http://localhost:5000/login
+     */
+     app.post('/login', async (req, res) => {
+      const loggedUser = req.body;
+      const token = jwt.sign(loggedUser, process.env.ACCESS_TOKEN_KEY, {
+        expiresIn: '10h',
+      });
+
+      res.send({ token });
+    });
+
+    /**
+     * verifyToken function section
+     */
+    const verifyToken = (req, res, next) => {
+      const author = req.headers.author;
+      if (!author) {
+        return res
+          .status(401)
+          .send({ name: 'NoToken', message: 'Unauthorized Access' });
+      }
+      const token = author.split(' ')[1];
+      //console.log(token);
+      jwt.verify(token, process.env.ACCESS_TOKEN_KEY, (error, decoded) => {
+        if (error) {
+          return res
+            .status(403)
+            .send({ name: 'WrongToken', message: 'Forbidden Access' });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    app.get('/tasks', verifyToken, async(req, res){
+      const decodedEmail = req.decoded.email;
+      // console.log(decodedEmail);
+      if (req.query.email === decodedEmail) {
+        const query = { email: req.query.email };
+        const data = await taskCollection.find(query).toArray();
+        // console.log(query);
+        res.send(data);
+      } else {
+        res
+          .status(403)
+          .send({ name: 'WrongToken', message: 'Forbidden Access' });
+      }
+    })
     /**
      * post a single task
      * link: http://localhost:5000/task
