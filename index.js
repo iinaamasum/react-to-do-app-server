@@ -20,57 +20,16 @@ async function run() {
   const taskCollection = client.db('todoData').collection('todoList');
 
   try {
-
     /**
-     * JWT token post api
-     * link-local: http://localhost:5000/login
+     * get all tasks
+     * link: http://localhost:5000/tasks
      */
-     app.post('/login', async (req, res) => {
-      const loggedUser = req.body;
-      const token = jwt.sign(loggedUser, process.env.ACCESS_TOKEN_KEY, {
-        expiresIn: '10h',
-      });
-
-      res.send({ token });
+    app.get('/tasks', async (req, res) => {
+      const query = { email: req.query.email };
+      const data = await taskCollection.find(query).toArray();
+      // console.log(query);
+      res.send(data);
     });
-
-    /**
-     * verifyToken function section
-     */
-    const verifyToken = (req, res, next) => {
-      const author = req.headers.author;
-      if (!author) {
-        return res
-          .status(401)
-          .send({ name: 'NoToken', message: 'Unauthorized Access' });
-      }
-      const token = author.split(' ')[1];
-      //console.log(token);
-      jwt.verify(token, process.env.ACCESS_TOKEN_KEY, (error, decoded) => {
-        if (error) {
-          return res
-            .status(403)
-            .send({ name: 'WrongToken', message: 'Forbidden Access' });
-        }
-        req.decoded = decoded;
-        next();
-      });
-    };
-
-    app.get('/tasks', verifyToken, async(req, res){
-      const decodedEmail = req.decoded.email;
-      // console.log(decodedEmail);
-      if (req.query.email === decodedEmail) {
-        const query = { email: req.query.email };
-        const data = await taskCollection.find(query).toArray();
-        // console.log(query);
-        res.send(data);
-      } else {
-        res
-          .status(403)
-          .send({ name: 'WrongToken', message: 'Forbidden Access' });
-      }
-    })
     /**
      * post a single task
      * link: http://localhost:5000/task
@@ -80,6 +39,34 @@ async function run() {
       const doc = data;
 
       const result = await taskCollection.insertOne(doc);
+      res.send(result);
+    });
+    /**
+     * deleting single data
+     * link-local: http://localhost:5000/task/${id}
+     * link-online:
+     */
+    app.delete('/task/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await taskCollection.deleteOne(query);
+      res.send(result);
+    });
+    /**
+     * update task
+     * link-local: http://localhost:5000/task/${id}
+     */
+    app.put('/task/:id', async (req, res) => {
+      const id = req.params.id;
+      const updatedData = req.body;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const newData = {
+        $set: updatedData,
+      };
+
+      const result = await taskCollection.updateOne(filter, newData, options);
+
       res.send(result);
     });
   } finally {
